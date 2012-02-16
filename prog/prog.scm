@@ -48,16 +48,19 @@
 
 ;;; Version 2
 
+;; updated with in class feedback
+;;   - let-syntax
+;;   - goto instead of k
+;;   - newline elimination optmization
+
 (define-syntax progs
   (syntax-rules ()
     [(_ goto return args main (out ...) (id b ...))
-     ((call/cc (lambda (k)
-                 (set! goto k)
-                 (set! return (lambda (x) (k (lambda () x))))
-                 (letrec (out ... (id (lambda () b ...)))
-                   (main)))))]
+     ((call/cc (lambda (goto)
+                 (let-syntax ([return (syntax-rules () [(_ e) (goto (lambda () e))])])
+                 (letrec (out ... (id (lambda () b ...))) (main))))))]
     [(_ goto return args main (out ...) (id b ...) (ni n ...) rest ... )
-     (progs goto return args main (out ... (id (lambda () b ... (ni)))) (ni n ...) rest ...)]))
+     (progs goto return args main (out ... (id (lambda () b ... ni))) (ni n ...) rest ...)]))
 
 (define progsi
   '(progs goto return (x y z) x^ ()
