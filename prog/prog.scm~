@@ -1,0 +1,295 @@
+
+;;; Aaron Todd
+;;; B621 prog transformation demonstration 
+
+;; the input program we use as an example
+
+(define prog-input
+  '(prog (x y z)
+     x^
+       (set! x 5)
+       (set! y x)
+     y^
+       (set! z (+ 3 y))
+       (goto a^)
+     z^
+       (return 120)
+     a^
+       (return z)
+   )
+)
+
+;; the naive transformation
+
+(define bad-prog
+  (lambda (x y z)
+    ((lambda (x) x) (call/cc (lambda (k)
+                               (letrec ([x^ (lambda ()
+                                              (set! x 5)
+                                              (set! y x)
+                                              (y^))]
+                                        [y^ (lambda ()
+                                              (set! z (+ 3 y))
+                                              (a^)
+                                              (z^))]
+                                        [z^ (lambda ()
+                                              (k 120)
+                                              (a^))]
+                                        [a^ (lambda ()
+                                              (k z))])
+                                 (x^)))))))
+  
+;; why is this bad-prog? the answer is correct!
+
+;; what about a simple test?
+
+(define break-bad-prog
+  (lambda ()
+    ((lambda (x) x) (call/cc (lambda (k)
+                               (letrec ([x^ (lambda ()
+                                              (y^)
+                                              (y^))]
+                                        [y^ (lambda ()
+                                              (x^)
+                                              (k 120))])
+                                 (x^)))))))
+
+;; it looks like a simple infinite loop...
+;; run it and...?
+
+;; this version is made with good-prog
+
+(define not-broken-prog
+  (lambda (x y)
+    ((call/cc (lambda (k)
+                (letrec ([x^ (lambda ()
+                               (set! y 5)
+                               (y^))]
+                         [y^ (lambda ()
+                               (set! x ((lambda (x) (x x)) (lambda (x) (x x))))
+                               (k (lambda () 120)))])
+                  (x^)))))))
+
+;; it has only tail calls
+
+;; the example transformed with good-prog
+
+(define good-prog
+  (lambda (x y z)
+    ((call/cc (lambda (k)
+                (letrec ([x^ (lambda ()
+                               (set! x 5)
+                               (set! y x)
+                               (y^))]
+                         [y^ (lambda ()
+                               (set! z (+ 3 y))
+                               (k a^)
+                               (z^))]
+                         [z^ (lambda ()
+                               (k (lambda () 120))
+                               (a^))]
+                         [a^ (lambda ()
+                               (k (lambda () z)))])
+                  (x^)))))))
+
+;; no set!s?
+
+(define good-prog-2
+  (lambda (x y z)
+    ((call/cc (lambda (k)
+                (letrec ([x^ (lambda (x y z)
+                               (let ([x 5])
+                                 (let ([y x])
+                               	   (y^ x y z))))]
+                         [y^ (lambda (x y z)
+                               (let ([z (+ y 3)])
+                                 (k (lambda () (a^ x y z)))
+                                 (z^ x y z)))]
+                         [z^ (lambda (x y z)
+                               (k (lambda () 120))
+                               (a^ x y z))]
+                         [a^ (lambda (x y z)
+                               (k (lambda () z)))])
+                  (x^ x y z)))))))
+
+
+
+(define-syntax progify
+  (syntax-rules ()
+    [(_ (args) (id body))
+     ((call/cc (lambda (k)
+                 (letrec
+                     ([t (make-parameter k)]
+                      [id (lambda () body)])
+                   (id)))))]))
+
+(define-syntax return
+  (syntax-rules ()
+    [(_ result)
+     (k (lambda () result))]))
+
+
+;; the trick: use return continuation as a trampoline
+;;;
+
+(define-syntax letest
+  (syntax-rules ()
+    [(_ (x xs ...))
+     (let-syntax ([le (lambda (x) x)])
+       (x `(,xs ...)))]))
+
+
+(define-syntax prog
+  (syntax-rules ()
+    [(_ goto return args main exps ...)
+     ((call/cc (lambda (k)
+                 (set! goto k)
+                 (set! return (lambda (x) (k (lambda () x))))
+                 (prex exps ... (()) (((main)))))))]))
+
+(define-syntax prex
+  (syntax-rules ()
+    [(_ (id b ...) ((out ...)) (((main))))
+     (letrec
+         (out ... (id (lambda () b ...)))
+         (main))]
+    [(_ (id b ...) (ni n ...) rest ... ((out ...)) (((main))))
+     (prex (ni n ...) rest ... ((out ... (id (lambda () b ... (ni))))) (((main))) )]))
+
+
+(define-syntax progs
+  (syntax-rules ()
+    [(_ goto return args main ((out ...)) (id b ...)]
+     ((call/cc (lambda (k)
+                 (set! goto k)
+                 (set! return (lambda (x) (k (lambda () x))))
+                 (letrec (out ... (id (lambda () b ...)))
+                   (main)
+                   )))))]
+    [(_ goto return args main ((out ...)) (id b ...) (ni n ...) rest ... )
+     (progs goto return args main ((out ... (id (lambda () b ... (ni))))) (ni n ...) rest ...)]))
+
+
+(define progsi
+  '(progs goto return (x y z) x^ (())
+          (x^
+           (set! x 5)
+           (set! y x))
+          (y^
+           (set! z (+ 3 y))
+           (goto a^))
+          (z^
+           (return 120))
+          (a^
+           (return z))))
+
+(define loop
+  '(progs goto return (x y z) x^ (())
+          (x^
+           (goto y^))
+          (y^
+           (goto x^)
+           (return 120))))
+
+(define prog-input
+  '(prog goto return (x y z) x^
+     (x^
+       (set! x 5)
+       (set! y x))
+     (y^
+       (set! z (+ 3 y))
+       (goto a^))
+     (z^
+       (return 120))
+     (a^
+       (return z))
+   )
+)
+
+
+;;;
+
+(define-syntax prog
+  (syntax-rules ()
+    [(_ goto return (args) main exps)
+     ((call/cc (lambda (k)
+                 (set! goto k)
+                 (set! return (lambda (x) (k (lambda () x))))
+                 
+                 (let-syntax ([prex
+                                  (syntax-rules ()
+                                    [(_ (id b ...) ((out ...)))
+                                     (out ... (id (lambda () b ...)))]
+                                    [(_ (id b ...) (ni n ...) rest ... ((out ...)))
+                                     (prex (ni n ...) rest ... ((out ... (id (lambda () b ... (ni))))))])])
+                               
+                   (letrec (prex exps (()))
+                     (main))))))]))
+
+
+(define-syntax prex
+  (syntax-rules ()
+    [(_ (id b ...) (ni bi ...) ...)
+     ((id (lambda () b ... (ni))) . (prex (ni bi ...) ...))]
+    [(_ (id b* ...))
+     (id (lambda () b* ...))]))
+
+(define-syntax ap
+  (syntax-rules ()
+    [(_ (id b ...) ((out ...)))
+     (out ... (id (lambda () b ...)))]
+    [(_ (id b ...) (ni n ...) rest ... ((out ...)))
+     (ap (ni n ...) rest ... ((out ... (id (lambda () b ... (ni))))))]))
+
+(define-syntax foo
+  (syntax-rules ()
+    ((_ () (already-processed ...))
+     <base case stuff>)
+    ((_ ((x x* ...) rest ...) (already-processed ...))
+     (foo (rest ...) (already-processed ... <do something with (x x* ...)>)))))
+
+
+(define-syntax broken
+  (syntax-rules ()
+    [(_ (x x* ...) ...)
+     (x* ... (...))]))
+
+;(define-syntax prex
+;  (syntax-rules ()
+;    [(_ 
+
+(define ina
+  '(prog goto return (x) x^
+         ((x^ (set! x 5)
+          (y^ (return x)))))
+
+(define pt
+  '(prex
+    (x^ (set! x 5))
+    (y^ (return x))))
+    
+
+
+;(define-syntax progify
+;  (syntax-rules ()
+;      [(_ (arg) (id1 b1) (id1 b2))
+;       ((call/cc (lambda (k)
+;                   (letrec ([id1 (lambda () b1 id2)]
+;                            [id2 (lambda () b2)])
+;                     (id1)))))]))
+
+;(define-syntax goto
+;  (syntax-rules ()
+;    [(_ label)
+;     (lambda (k) (k label))]))
+
+;(define-syntax return
+;  (syntax-rules ()
+;    [(_ result)
+;     (lambda (k) (k (lambda () result)))]))
+
+;((lambda (k) (goto a^)) k)
+;((lambda (k) ((lambda (lab) (k lab))) 
+
+;((lambda (ki) (ki a^)) k)
+
