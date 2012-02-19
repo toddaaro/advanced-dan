@@ -55,14 +55,28 @@
        kf))
     ((_ v lit kt kf) (if (equal? v (quote lit)) kt kf))))
 
-;;; A nestable procedure that returns the first
+;;; A nestable procedure that returns the first argument to finish evaluation
 
 (define in-amb?
-  (lambda () #f))
+  (lambda ()
+    #f))
 
-(define runamb
+(define-syntax amb
+  (syntax-rules ()
+    [(amb t1 t2)
+     (amb-core (lambda () t1) (lambda () t2))]))
+
+(define amb-core
+  (lambda (t1 t2)
+    (call/cc (lambda (k)
+               (if (in-amb?)
+                   (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
+                   (begin (fluid-let ([in-amb? (lambda () #t)])
+                          (run-amb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2))))))))))
+
+(define run-amb
   (lambda (tree)
-    (runamb (iter tree))))
+    (run-amb (iter tree))))
 
 (define iter
   (lambda (tree)
@@ -75,16 +89,13 @@
                         ((make-engine (lambda () (context value))) 10000
                          (lambda (ticks value) `(val ,value))
                          (lambda (x) x))]))]
-
              [run-eng (lambda (eng)
-                        (eng 1
-                             (lambda in (pmatch in
-                                          [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
-                                          [(,ticks ,value) `(val ,value)]))
+                        (eng 1 (lambda in (pmatch in
+                                            [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
+                                            [(,ticks ,value) `(val ,value)]))
                              (lambda (x) `(eng ,x))))]
              [run (lambda (exp)
                     (pmatch exp
-                      [(val ,value) `(val ,value)]
                       [(thunk ,t) (run-eng (make-engine t))]
                       [(amb ,context ,t1 ,t2) (iter exp)]
                       [(eng ,e) (run-eng e)]))])
@@ -94,67 +105,9 @@
             [(,r1 (val ,v2)) (jump context v2)]
             [(,r1 ,r2) `(amb ,context ,r1 ,r2)])))])))
 
-(define amb
-  (lambda (t1 t2)
-    (call/cc (lambda (k)
-               (if (in-amb?)
-                   (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
-                   (begin (set! in-amb? (lambda () #t))
-                          (runamb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2)))))))))
-
-(define test5
+(define test
   (lambda ()
-    (+ 5 (amb omega (lambda () (+ 120 (amb (lambda () 120) omega)))))))
-
-
-(define test4
-  (lambda ()
-    (+ 5 (amb omega (lambda () (+ 120 120))))))
-
-
-(define test3
-  (lambda ()
-    (+ 5 (call/cc (lambda (k)
-                    (runamb
-                     `(amb ,k (thunk ,(lambda () (+ 120 120))) (thunk ,omega))))))))
+    (+ 5 (amb ((lambda (x) (x x)) (lambda (x) (x x))) (+ 120 (amb 120 ((lambda (x) (x x)) (lambda (x) (x x)))))))))
 
 
 
-
-
-
-
-
-
-
-(define loop
-  (lambda (exp)
-    (pmatch exp
-      [(amb ,context ,t1 ,t2) 
-       (let* ([run-eng (lambda (eng)
-                         (eng 1
-                              (lambda (ticks value) (context value))
-                              (lambda (x) `(eng ,x))))]
-              [run (lambda (exp)
-                     (pmatch exp
-                       [(thunk ,t)
-                        (run-eng (make-engine t))]
-                       [(amb ,context ,t1 ,t2) 'uhoh]
-                       [(eng ,e) (run-eng e)]))])
-         (loop `(amb ,context ,(run t1) ,(run t2))))
-         ])))
-
-(define test1
-  (lambda ()
-    (+ 5 (call/cc (lambda (k)
-                    (loop `(amb ,k (thunk ,(lambda () (+ 120 120))) (thunk ,(lambda () 120)))))))))
-
-(define test2
-  (lambda ()
-    (+ 5 (call/cc (lambda (k)
-                    (loop `(amb ,k (thunk ,(lambda () (+ 120 120))) (thunk ,omega))))))))
-
-
-(define omega
-    (lambda ()
-       ((lambda (x) (x x)) (lambda (x) (x x)))))
