@@ -57,26 +57,24 @@
 
 ;;; A nestable procedure that returns the first argument to finish evaluation
 
-(define in-amb?
-  (lambda ()
-    #f))
+(define in-amb? #f)
 
 (define-syntax amb
-  (syntax-rules ()
-    [(amb t1 t2)
-     (amb-core (lambda () t1) (lambda () t2))]))
+   (syntax-rules ()
+     [(amb t1 t2)
+      (amb-core (lambda () t1) (lambda () t2))]))
+                             
+ (define amb-core
+   (lambda (t1 t2)
+     (call/cc (lambda (k)
+                (if in-amb?
+                    (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
+                    (begin (fluid-let ([in-amb? #t])
+                           (run-amb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2))))))))))
 
-(define amb-core
-  (lambda (t1 t2)
-    (call/cc (lambda (k)
-               (if (in-amb?)
-                   (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
-                   (begin (fluid-let ([in-amb? (lambda () #t)])
-                          (run-amb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2))))))))))
-
-(define run-amb
-  (lambda (tree)
-    (run-amb (iter tree))))
+ (define run-amb
+   (lambda (tree)
+     (run-amb (iter tree))))
 
 (define iter
   (lambda (tree)
@@ -105,9 +103,16 @@
             [(,r1 (val ,v2)) (jump context v2)]
             [(,r1 ,r2) `(amb ,context ,r1 ,r2)])))])))
 
-(define test
+(define omega
+  (lambda ()
+    ((lambda (x) (x x)) (lambda (x) (x x)))))
+
+(define test1
   (lambda ()
     (+ 5 (amb ((lambda (x) (x x)) (lambda (x) (x x))) (+ 120 (amb 120 ((lambda (x) (x x)) (lambda (x) (x x)))))))))
 
+(define test2
+  (lambda ()
+    (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb 120 (omega)))))))))))
 
 
