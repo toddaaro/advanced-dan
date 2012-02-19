@@ -61,15 +61,32 @@
 
 (define-syntax amb
    (syntax-rules ()
-     [(amb t1 t2)
+     [(_ t1 t2)
       (amb-core (lambda () t1) (lambda () t2))]))
-                             
+
+(define mcall/cc
+  (lambda (f)
+    (call/cc (lambda (k)               
+               (engine-return 'kont `(in-engine ,k) f)))))
+
+(define-syntax call/cc
+  (syntax-rules ()
+    [(_ arg)
+     (if in-amb?
+         (mcall/cc arg)
+         (call-with-current-continuation arg))]))
+
+(define-syntax rcc
+  (syntax-rules ()
+    [(_ arg) (call-with-current-continuation arg)]))
+         
+
  (define amb-core
    (lambda (t1 t2)
-     (call/cc (lambda (k)
+     (rcc (lambda (k)
                 (if in-amb?
                     (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
-                    (begin (fluid-let ([in-amb? #t])
+                    (begin (fluid-let ([in-amb? #t])          
                            (run-amb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2))))))))))
 
  (define run-amb
@@ -90,6 +107,9 @@
              [run-eng (lambda (eng)
                         (eng 1 (lambda in (pmatch in
                                             [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
+                                            [(,ticks kont ,context ,body) (rcc (lambda (k)
+                                                                                     (jump context (body (lambda (arg)
+                                                                                                               (k (jump context arg)))))))]
                                             [(,ticks ,value) `(val ,value)]))
                              (lambda (x) `(eng ,x))))]
              [run (lambda (exp)
