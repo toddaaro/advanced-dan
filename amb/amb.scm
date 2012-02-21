@@ -81,17 +81,15 @@
   (syntax-rules ()
     [(_ arg) (call-with-current-continuation arg)]))
          
-
  (define amb-core
    (lambda (t1 t2)
      (rcc (lambda (k)
                 (if in-amb?
                     (engine-return 'amb `(in-engine ,k) `(thunk ,t1) `(thunk ,t2))
-                    (begin (fluid-let ([in-amb? #t]          
-                                       )
+                    (begin (fluid-let ([in-amb? #t])
                            (run-amb `(amb (jumpout ,k) (thunk ,t1) (thunk ,t2))))))))))
 
- (define run-amb
+(define run-amb
    (lambda (tree)
      (run-amb (iter tree))))
 
@@ -108,16 +106,15 @@
                          (lambda (x) x))]))]
              [run-eng (lambda (eng)
                         (eng 1 (lambda in (pmatch in
-                                            [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
-                                            [(,ticks akont ,k ,arg) (k arg)]
-                                            [(,ticks kont ,context2 ,body) (rcc (lambda (k)
-                                                                                  `(eng ,(make-engine (lambda ()
-                                                                                                        ((cadr context2) (body (lambda (arg)
-                                                                                                                (if in-amb?
-                                                                                                                    (engine-return 'akont (lambda (a) (jump `(jumpout ,k) (jump context2 a))) arg)
-                                                                                                                    (k (jump context2 arg)))))))))))]
-                                                                                  
-                                            [(,ticks ,value) `(val ,value)]))
+                            [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
+                            [(,ticks akont ,k ,arg) (k arg)]
+                            [(,ticks kont ,context2 ,body) (rcc (lambda (k)
+                                `(eng ,(make-engine (lambda ()
+                                    ((cadr context2) (body (lambda (arg)
+                                        (if in-amb?
+                                            (engine-return 'akont (lambda (a) (jump `(jumpout ,k) (jump context2 a))) arg)
+                                            (k (jump context2 arg)))))))))))]                                                     
+                            [(,ticks ,value) `(val ,value)]))
                              (lambda (x) `(eng ,x))))]
              [run (lambda (exp)
                     (pmatch exp
