@@ -101,9 +101,9 @@
                      (pmatch context
                        [(jumpout ,context) (context value)]
                        [(in-engine ,context)
-                        ((make-engine (lambda () (context value))) 10000
+                        ((make-engine (lambda () (context value))) 1
                          (lambda (ticks value) `(val ,value))
-                         (lambda (x) x))]))]
+                         (lambda (x) `(eng ,x)))]))]
              [run-eng (lambda (eng)
                         (eng 1 (lambda in (pmatch in
                             [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
@@ -139,10 +139,13 @@
   (lambda ()
     (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb 120 (omega)))))))))))
 
-(define test3
+(define test31
   (lambda ()
-    (and (equal? (amb (omega) (+ 5 (call/cc (lambda (k) (set! foo k) 120)))) 125) 
-         (equal? 6 (foo 1)))))
+    (amb (omega) (+ 5 (call/cc (lambda (k) (set! foo k) 120))))))
+
+(define test32
+  (lambda ()
+    (foo 1)))
 
 (define test4
   (lambda ()
