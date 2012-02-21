@@ -16,3 +16,14 @@
 > (yy xx)
 > xx
 135
+> (set! xxx (amb (omega) (amb (omega) (+ 5 (call/cc (lambda (k) (set! yyy k) 120
+))))))
+> xxx
+125
+> (yyy xxx)
+> xxx
+130
+> (yyy xxx)
+> xxx
+135
+> 
