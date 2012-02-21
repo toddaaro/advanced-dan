@@ -142,4 +142,22 @@
   (lambda ()
     (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb (omega) (+ 5 (amb 120 (omega)))))))))))
 
+(define test3
+  (lambda ()
+    (and (equal? (amb (omega) (+ 5 (call/cc (lambda (k) (set! foo k) 120)))) 125) 
+         (equal? 6 (foo 1)))))
 
+(define test4
+  (lambda ()
+    (amb ((lambda (x) (map add1 (list 1 2 3 4 5))) 120)
+         (call/cc (lambda (k) (omega) (k 1) 120)))))
+
+(define test5
+  (lambda ()
+    (amb ((lambda (x) (map add1 (list 1 2 3 4 5))) 120)
+         (+ (call/cc (lambda (k) (k 1))) (omega)))))
+
+(define test6
+  (lambda ()
+    (amb ((lambda (x) (map add1 (list 1 2 3 4 5))) 120)
+         (+ (omega) (call/cc (lambda (k) (k 1)))))))
