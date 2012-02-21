@@ -29,4 +29,8 @@
                          y^.3)]
                  [y^.3 (lambda () (y x) (goto.0 (lambda () x)))])
           (x^.1)))))))
-  
+
+(define begincc
+  '(begin
+    (set! foo (+ 5 (call/cc (lambda (k) (set! bar k) 115))))
+    (display "uh oh")))
