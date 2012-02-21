@@ -103,7 +103,11 @@
                        [(in-engine ,context)
                         ((make-engine (lambda () (context value))) 1
                          (lambda (ticks value) `(val ,value))
-                         (lambda (x) `(eng ,x)))]))]
+                         (lambda (x) `(eng ,x)))]
+                       [(doublec ,c1 ,c2)
+                        ((make-engine (lambda () (c1 (c2 value)))) 1
+                                     (lambda (ticks value) `(val value))
+                                     (lambda (x) `(eng ,x)))]))]
              [run-eng (lambda (eng)
                         (eng 1 (lambda in (pmatch in
                             [(,ticks amb ,context ,t1 ,t2) `(amb ,context ,t1 ,t2)]
@@ -112,8 +116,8 @@
                                 `(eng ,(make-engine (lambda ()
                                     ((cadr context2) (body (lambda (arg)
                                         (if in-amb?
-                                            (engine-return 'akont (lambda (a) (jump `(jumpout ,k) (jump context2 a))) arg)
-                                            (k (jump context2 arg)))))))))))]                                                     
+                                            (engine-return 'akont (lambda (a) (jump `(doublec ,(cadr context) ,(cadr context2)) a)) arg)
+                                            (k (jump context2 arg)))))))))))]
                             [(,ticks ,value) `(val ,value)]))
                              (lambda (x) `(eng ,x))))]
              [run (lambda (exp)
@@ -126,6 +130,8 @@
             [((val ,v1) ,r2) (jump context v1)]
             [(,r1 (val ,v2)) (jump context v2)]
             [(,r1 ,r2) `(amb ,context ,r1 ,r2)])))])))
+
+
 
 (define omega
   (lambda ()
@@ -146,6 +152,11 @@
 (define test32
   (lambda ()
     (foo 1)))
+
+(define loop-chez
+  (lambda ()
+    (and (equal? 125 (+ 5 (call/cc (lambda (k) (set! foo k) 120))))
+         (equal? 6 (foo 120)))))
 
 (define test4
   (lambda ()
@@ -170,5 +181,69 @@
            (y^
             (y x)
             (return x))))
+
+
+(define prog-inside-amb
+  (lambda ()
+    (amb
+     (progs goto return (x y z) x^ ()
+          (x^
+           (set! x 5)
+           (set! y x))
+          (y^
+           (set! z (+ 3 y))
+           (goto a^))
+          (z^
+           (return 120))
+          (a^
+           (return z)))
+     
+    (omega))))
+
+
+(define prog-inside-amb3
+  (lambda ()
+    (amb
+     (progs goto return (x) x^ ()
+          (x^
+           (set! x 5)
+           (goto y^))
+          (y^
+           (return x))
+          )
+
+     (omega))))
+     
+;    (progs goto return () x^ ()
+;          (x^
+;           (goto y^))
+;          (y^
+;           (goto x^)
+;           (return 120))))))
+
+
+(define prog-inside-amb2
+  (lambda ()
+    (amb
+     (progs goto return (x y z) x^ ()
+          (x^
+           (set! x 5)
+           (set! y x))
+          (y^
+           (set! z (+ 3 y))
+           (goto a^))
+          (z^
+           (return 120))
+          (a^
+           (return z)))
+     
+    (progs gotoa returna () xx^ ()
+          (xx^
+           (gotoa yy^))
+          (yy^
+           (gotoa xx^)
+           (returna 120))))))
+
+     
 
 (print-gensym 'pretty/suffix)
