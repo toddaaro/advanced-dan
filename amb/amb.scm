@@ -158,3 +158,36 @@
   (lambda ()
     (amb ((lambda (x) (map add1 (list 1 2 3 4 5))) 120)
          (+ (omega) (call/cc (lambda (k) (k 1)))))))
+
+(load "../prog/prog.scm")
+(define mean-test
+    '(progs goto return (x y z) x^ ()
+           (x^
+            (set! x (amb (omega) (+ 5 (call/cc (lambda (k) (set! y k) 120))))))
+           (y^
+            (y x)
+            (set! z (+ 3 x))
+            (goto a^))
+           (z^
+            (return 120))
+           (a^
+            (return z))))
+
+(define mean1
+    '(progs goto return (x y z) x^ ()
+           (x^
+            (set! x (amb (omega) (+ 5 (call/cc (lambda (k) (set! y k) 120))))))
+           (y^
+            (y x)
+            (return x))))
+
+(define mean2 
+    '(progs goto return (x y z) x^ ()
+           (x^
+            (set! x (+ 5 (rcc (lambda (k) (set! y k) 120)))))
+           (y^
+            ;(return x)
+            (y x)
+            (return x))))
+
+(print-gensym 'pretty/suffix)
