@@ -1,8 +1,4 @@
-
-;;; An implementation of delimited continuations
-
-;(define top
-;  ((call/cc (lambda (k) k))
+;;; Aaron Todd, Advanced Dan, Spring 2012
 
 ;;; A delimited continuation implementation
 ;;;   - Allows for arbitrary numbers of shifts and resets
@@ -34,3 +30,5 @@
                                                   [(_ f) (shift reset-id f)])])
                                         (let ([ebody body])
                                           ((unbox (cdr (assoc reset-id rks))) ebody)))))))]))
+
+
