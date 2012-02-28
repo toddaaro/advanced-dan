@@ -82,22 +82,6 @@
                                (loop (sub1 n)))]))])
       (loop x))))
 
-(define test-mem2
-  (lambda (x)
-    (letrec ([loop (lambda (n)
-                     (cond
-                       [(zero? n) 120]
-                       [else
-                        (begin
-                          (add1 
-                           (reset
-                            (bytevector=? (make-bytevector (* 100 MB) (random 255))
-                                          (shift 1 (lambda (k)
-                                                     (k (make-bytevector (* 100 MB) (random 255)))
-                                                     4)))))
-                          (loop (sub1 n)))]))])
-      (loop x))))
-
 ;;; Basic tests
 
 (load "../utils/tester.scm")
