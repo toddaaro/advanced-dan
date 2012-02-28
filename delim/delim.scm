@@ -46,7 +46,8 @@
                   [apply-rk (apply-k rks apply-jk)])                                  
            (fluid-let ([fshift (case-lambda 
                                  [(id f)
-                                  (let ([sid (gensym)])
+                                  (let ([sid (gensym)]
+                                        [id (- reset-id id)])
                                     (fluid-let ([shift-depth (add1 shift-depth)]
                                                 [shifted (cons (cons sid (box #f)) shifted)])
                                       (call/cc (lambda (k)
@@ -56,7 +57,7 @@
                                                                 (begin (set-box! (cdr (assoc sid shifted)) #t) (push-k id ik jks))
                                                                 (push-k id ik rks))
                                                             (k arg))))))))))]
-                                 [(f) (fshift reset-id f)])])
+                                 [(f) (fshift 0 f)])])
            (let ([ebody body])
              (lambda () (apply-rk reset-id ebody)))))))))))))]))
 
@@ -121,7 +122,7 @@
       120)
 
     (test-check "dynamic numeric id > 1"
-      (reset (+ 100 (reset (+ 10 (shift 2 (lambda (k) (k (k 0))))))))
+      (reset (+ 100 (reset (+ 10 (shift 0 (lambda (k) (k (k 0))))))))
       120)
 
     (test-check "k outside reset"
