@@ -57,31 +57,15 @@
                                   (fluid-let ([fshift (case-lambda 
                                                               [(id f)
                                                                (let ([sid (gensym)])
-                                                               (fluid-let ([shift-depth (add1 shift-depth)]
-                                                                           [shifted (cons (cons sid (box #f)) shifted)]
-                                                                           
-                                                                           )
-                                                               (call/cc (lambda (k)
-
-
-                                                                          
-                                                                          
-                                                                          ;(pretty-print "about to appply jumpout")
-                                                                          ;(pretty-print id)
-                                                                          ;(pretty-print jks)
-                                                                          (pretty-print "what is the shift-depth")
-                                                                          (pretty-print shift-depth)
-                                                                          (let ([work (f (lambda (arg)
-                                                                                                     (call/cc (lambda (ik)
-                                                                                                                (if (and (> shift-depth 1) (not (unbox (cdr (assoc sid shifted)))))
-                                                                                                                    (begin (set-box! (cdr (assoc sid shifted)) #t) (push-jk id ik))
-                                                                                                                    (push-rk id ik))
-                                                                                                                (k arg)))))])
-                                                                          (if (equal? 1 shift-depth)
-                                                                              (apply-jk id work)
-                                                                              (apply-rk id work)))))))]
-
-                                                                                    
+                                                                 (fluid-let ([shift-depth (add1 shift-depth)]
+                                                                             [shifted (cons (cons sid (box #f)) shifted)])
+                                                                   (call/cc (lambda (k)
+                                                                              (apply-jk id (f (lambda (arg)
+                                                                                                (call/cc (lambda (ik)
+                                                                                                           (if (and (> shift-depth 1) (not (unbox (cdr (assoc sid shifted)))))
+                                                                                                               (begin (set-box! (cdr (assoc sid shifted)) #t) (push-jk id ik))
+                                                                                                               (push-rk id ik))
+                                                                                                           (k arg))))))))))]
                                                               [(f) (let ([nid reset-id]) (fshift nid f))])])
                                                     (let ([ebody body])
                                                       (lambda () (apply-rk reset-id ebody))))))))))))]))
@@ -166,12 +150,10 @@
         (madd 100))
       120)
 
-
+    (test-check "nested shifts targeting same reset"
+      (reset (+ 5 (shift (lambda (k)
+                           (k (k (reset (+ 55 (shift (lambda (kk)
+                                                         (kk (kk 0))))))))))))
+      120)
       
-
     ))
-
-      
-;(reset (+ 1 (shift (lambda (k)
-;                     (k (k (reset (+ 10 (shift 1 (lambda (kk)
-;                                                   (kk (kk 0))))))))))))
