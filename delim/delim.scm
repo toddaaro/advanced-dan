@@ -19,8 +19,8 @@
 
 (define fshift
   (case-lambda
-    [(n f) 'hukarz]
-    [(f) 'hukarz]))
+    [(n f) (error 'shift "attempted to shift outside of an enclosing reset")]
+    [(f) (error 'shift "attempted to shift outside of an enclosing reset")]))
 
 (define-syntax reset
   (syntax-rules ()
@@ -130,5 +130,13 @@
                            (k (k (reset (+ 50 (shift 1 (lambda (kk)
                                                          (kk (kk 0))))))))))))
       120)
-      
+
+    (test-check "Adam's test"
+      (+ 1 (reset
+            (+ 2 (shift (lambda (k)
+                          (k (k (reset
+                                 (+ 17 (shift (lambda (k^)
+                                                      (+ 57 (k 5)))))))))))))
+      69)
+     
     ))
