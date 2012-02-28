@@ -31,26 +31,19 @@
                               [jks (cons (cons reset-id (box `(,jk))) jks)])
                     ((call/cc (lambda (uk)
                                 (let* ([push-rk (lambda (id k) (call/cc (lambda (outk)
-                                                                           (uk (lambda () (pretty-print rks) (set-box! (cdr (assoc id rks)) (cons k (unbox (cdr (assoc id rks))))) (outk))))))]
-
+                                                                           (uk (lambda () (set-box! (cdr (assoc id rks)) (cons k (unbox (cdr (assoc id rks))))) (outk))))))]
                                        [push-jk (lambda (id k) (call/cc (lambda (outk)
-                                                                           (uk (lambda () (pretty-print jks) (set-box! (cdr (assoc id jks)) (cons k (unbox (cdr (assoc id jks))))) (outk))))))]
-
-                                       
-                                       
+                                                                           (uk (lambda () (set-box! (cdr (assoc id jks)) (cons k (unbox (cdr (assoc id jks))))) (outk))))))]
                                        [apply-jk (lambda (id ebody) (if (not (null? (unbox (cdr (assoc id jks)))))
                                                                         (let ([ks (unbox (cdr (assoc id jks)))])
                                                                           (set-box! (cdr (assoc id jks)) (cdr ks))
                                                                           ((car ks) ebody))
                                                                         (jk ebody)))]
-                                       [apply-rk (lambda (id ebody) (pretty-print "about to appply-rk") (pretty-print id) (pretty-print rks) (if (not (null? (unbox (cdr (assoc id rks)))))
-                                                                                                                                                 (let ([ks (unbox (cdr (assoc id rks)))])
-                                                                                                                                                   
-                                                                                                                                                   (set-box! (cdr (assoc id rks)) (cdr ks))
-                                                                                                                                                   (pretty-print rks)
-                                                                                                                                                   ((car ks) ebody))
-                                                                                                                                                 (apply-jk id ebody)))]
-                                       )
+                                       [apply-rk (lambda (id ebody)  (if (not (null? (unbox (cdr (assoc id rks)))))
+                                                                         (let ([ks (unbox (cdr (assoc id rks)))])                                                                           
+                                                                           (set-box! (cdr (assoc id rks)) (cdr ks))                                                                         
+                                                                           ((car ks) ebody))
+                                                                         (apply-jk id ebody)))])
                                   
                                   
                                   
