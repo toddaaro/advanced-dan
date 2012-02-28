@@ -26,42 +26,39 @@
   (syntax-rules ()
     [(_ body)
      (call/cc (lambda (jk)
-                (fluid-let ([reset-id (add1 reset-id)])
-                  (fluid-let ([rks (cons (cons reset-id (box '())) rks)]
-                              [jks (cons (cons reset-id (box `(,jk))) jks)])
-                    ((call/cc (lambda (uk)
-                                (let* ([push-rk (lambda (id k) (call/cc (lambda (outk)
-                                                                           (uk (lambda () (set-box! (cdr (assoc id rks)) (cons k (unbox (cdr (assoc id rks))))) (outk))))))]
-                                       [push-jk (lambda (id k) (call/cc (lambda (outk)
-                                                                           (uk (lambda () (set-box! (cdr (assoc id jks)) (cons k (unbox (cdr (assoc id jks))))) (outk))))))]
-                                       [apply-jk (lambda (id ebody) (if (not (null? (unbox (cdr (assoc id jks)))))
-                                                                        (let ([ks (unbox (cdr (assoc id jks)))])
-                                                                          (set-box! (cdr (assoc id jks)) (cdr ks))
-                                                                          ((car ks) ebody))
-                                                                        (jk ebody)))]
-                                       [apply-rk (lambda (id ebody)  (if (not (null? (unbox (cdr (assoc id rks)))))
-                                                                         (let ([ks (unbox (cdr (assoc id rks)))])                                                                           
-                                                                           (set-box! (cdr (assoc id rks)) (cdr ks))                                                                         
-                                                                           ((car ks) ebody))
-                                                                         (apply-jk id ebody)))])
-                                  
-                                  
-                                  
-                                  (fluid-let ([fshift (case-lambda 
-                                                              [(id f)
-                                                               (let ([sid (gensym)])
-                                                                 (fluid-let ([shift-depth (add1 shift-depth)]
-                                                                             [shifted (cons (cons sid (box #f)) shifted)])
-                                                                   (call/cc (lambda (k)
-                                                                              (apply-jk id (f (lambda (arg)
-                                                                                                (call/cc (lambda (ik)
-                                                                                                           (if (and (> shift-depth 1) (not (unbox (cdr (assoc sid shifted)))))
-                                                                                                               (begin (set-box! (cdr (assoc sid shifted)) #t) (push-jk id ik))
-                                                                                                               (push-rk id ik))
-                                                                                                           (k arg))))))))))]
-                                                              [(f) (let ([nid reset-id]) (fshift nid f))])])
-                                                    (let ([ebody body])
-                                                      (lambda () (apply-rk reset-id ebody))))))))))))]))
+       (fluid-let ([reset-id (add1 reset-id)])
+       (fluid-let ([rks (cons (cons reset-id (box '())) rks)]
+                   [jks (cons (cons reset-id (box `(,jk))) jks)])
+         ((call/cc (lambda (uk)
+           (let-syntax ([push-k (syntax-rules ()
+                                  [(_ id k ks)
+                                   (call/cc (lambda (outk)
+                                     (uk (lambda () (set-box! (cdr (assoc id ks)) (cons k (unbox (cdr (assoc id ks))))) (outk)))))])]
+                        [apply-k (syntax-rules ()
+                                   [(_ iks fail)
+                                    (lambda (id ebody)
+                                      (if (not (null? (unbox (cdr (assoc id iks)))))
+                                          (let ([ks (unbox (cdr (assoc id iks)))])
+                                            (set-box! (cdr (assoc id iks)) (cdr ks))
+                                            ((car ks) ebody))
+                                          (fail id ebody)))])])             
+           (let* ([apply-jk (apply-k jks (lambda (id b) (jk b)))]
+                  [apply-rk (apply-k rks apply-jk)])                                  
+           (fluid-let ([fshift (case-lambda 
+                                 [(id f)
+                                  (let ([sid (gensym)])
+                                    (fluid-let ([shift-depth (add1 shift-depth)]
+                                                [shifted (cons (cons sid (box #f)) shifted)])
+                                      (call/cc (lambda (k)
+                                        (apply-jk id (f (lambda (arg)
+                                                          (call/cc (lambda (ik)
+                                                            (if (and (> shift-depth 1) (not (unbox (cdr (assoc sid shifted)))))
+                                                                (begin (set-box! (cdr (assoc sid shifted)) #t) (push-k id ik jks))
+                                                                (push-k id ik rks))
+                                                            (k arg))))))))))]
+                                 [(f) (fshift reset-id f)])])
+           (let ([ebody body])
+             (lambda () (apply-rk reset-id ebody)))))))))))))]))
 
 
 ;;; Tests
@@ -145,7 +142,7 @@
 
     (test-check "nested shifts targeting same reset"
       (reset (+ 5 (shift (lambda (k)
-                           (k (k (reset (+ 55 (shift (lambda (kk)
+                           (k (k (reset (+ 50 (shift 1 (lambda (kk)
                                                          (kk (kk 0))))))))))))
       120)
       
