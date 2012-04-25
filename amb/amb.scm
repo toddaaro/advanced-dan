@@ -56,7 +56,7 @@
     ((_ v lit kt kf) (if (equal? v (quote lit)) kt kf))))
 
 ;;; A nestable procedure that returns the first argument to finish evaluation
-
+;;; has awesome call/cc interactions
 
 (define in-amb? #f)
 
@@ -172,6 +172,30 @@
   (lambda ()
     (amb ((lambda (x) (map add1 (list 1 2 3 4 5))) 120)
          (+ (omega) (call/cc (lambda (k) (k 1)))))))
+
+
+(define fact
+  (lambda (n)
+    (if (equal? n 0)
+        1
+        (* n (fact (sub1 n))))))
+
+;; This test is the best test. Amb will make it to the set! inside
+;; call/cc, but if invoked that k will infinite loop. The other amb
+;; branch is there to save the day though. If this k is set!'d to the
+;; outside world invoking it will restore the state off the *entire*
+;; amb execution, so the alternate branch returns
+
+(define test71
+  (lambda ()
+    (amb (fact 5) (+ (call/cc (lambda (k) (set! n k))) (omega)))))
+
+;; running this it will return 120
+;; invoking the set!'d continuation n will also return 120
+
+(define test72
+  (lambda ()
+    (n 'hukarz)))
 
 (load "../prog/prog.scm")
 (define prog-loop
