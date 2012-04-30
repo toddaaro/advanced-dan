@@ -7,3 +7,6 @@
     (x (call/cc (lambda (k)
                   (set! x (lambda (h) 120))
                   (k 'hukarz))))))
+
+;; answer: evaluation-order dependent behavior
+

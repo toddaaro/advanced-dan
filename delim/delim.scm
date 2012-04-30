@@ -6,6 +6,11 @@
 ;;;   - If no id is given it pairs with the nearest reset
 ;;;   - continuations can be moved to the "outside world" and invoked without issue (was the goal...so?)
 
+;; Based on looking at Adam's code I think what I did here was
+;; implement a fancy call stack myself instead of using
+;; scheme's. However I did confirm proper memory usage (no leaks) and
+;; get more shifts / resets.
+
 (define reset-id 0)
 (define rks '())
 (define jks '())
